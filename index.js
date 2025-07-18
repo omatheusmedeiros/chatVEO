@@ -71,6 +71,10 @@ app.post('/generate-video', async (req, res) => {
   }
 });
 
+app.get('/health', (req, res) => {
+  res.status(200).send({ status: 'ok' });
+});
+
 app.listen(3000, () => {
   console.log('Servidor rodando na porta 3000');
 });
