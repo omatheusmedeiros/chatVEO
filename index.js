@@ -130,20 +130,30 @@ app.post('/generate-image', async (req, res) => {
   try {
     // Usamos um modelo da família "Imagen" para geração de imagens
     const generativeModel = vertexAi.getGenerativeModel({
-      model: 'imagegeneration@006', // Modelo estável e recomendado para geração de imagens
+      model: 'imagegeneration@006', // Modelo estável e recomendado
     });
 
+    // O formato da requisição para imagens é o mesmo para texto/vídeo
     const request = {
-      prompt: prompt,
-      // Você pode adicionar mais parâmetros aqui, como número de imagens, etc.
-      // Ex: sampleCount: 1,
+      contents: [{ parts: [{ text: prompt }] }],
     };
 
-    // A API de imagem é síncrona, então a resposta já vem com os dados
-    const [response] = await generativeModel.generateImages(request);
+    // CORREÇÃO: Usamos o método unificado .generateContent()
+    const result = await generativeModel.generateContent(request);
+
+    // A resposta para imagens vem em um formato um pouco diferente
+    const response = result.response;
+    const firstCandidate = response.candidates && response.candidates[0];
+
+    if (!firstCandidate || !firstCandidate.content || !firstCandidate.content.parts) {
+      throw new Error('Resposta da API de imagem inválida ou vazia.');
+    }
+
+    // A imagem vem como dados binários codificados em base64
+    const imageData = firstCandidate.content.parts[0].fileData;
     
-    // A resposta contém uma lista de imagens geradas. Pegamos a primeira.
-    const imageUrl = response.images[0].url;
+    // CORREÇÃO: Montamos a URL pública do Google Cloud Storage
+    const imageUrl = imageData.fileUri.replace('gs://', 'https://storage.googleapis.com/');
 
     console.log('Imagem gerada com sucesso. URL:', imageUrl);
 
@@ -151,7 +161,6 @@ app.post('/generate-image', async (req, res) => {
 
   } catch (err) {
     console.error('Erro ao gerar imagem com o Gemini/Imagen:', err);
-    // Verifica se o erro é de cota, para dar uma mensagem mais clara
     if (err.message && err.message.includes('Quota exceeded')) {
       return res.status(429).send({ error: 'Limite de uso da API de imagens atingido. Por favor, tente novamente mais tarde.' });
     }
