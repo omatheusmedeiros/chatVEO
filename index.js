@@ -45,14 +45,28 @@ app.post('/generate-video', async (req, res) => {
   const { prompt } = req.body;
 
   try {
-    const model = 'models/video-3';
+    // Caminho completo do modelo VEO 3.0 usando seu Project ID
+    const model = 'projects/refined-iridium-466204-v2/locations/us-central1/publishers/google/models/veo-3';
+
     const response = await vertexAi.preview(model).predict({
       instances: [{ prompt }],
     });
 
-    res.status(200).send({ videoLink: response.data.output?.videoUrl || 'Link indisponível', raw: response.data });
+    console.log('Resposta VEO3:', response);
+
+    // Procure pelo campo correto do vídeo no retorno
+    let videoUrl = null;
+    if (response?.[0]?.videoUrl) videoUrl = response[0].videoUrl;
+    else if (response?.data?.output?.videoUrl) videoUrl = response.data.output.videoUrl;
+    else if (response?.predictions?.[0]?.videoUrl) videoUrl = response.predictions[0].videoUrl;
+
+    if (videoUrl) {
+      res.status(200).send({ videoLink: videoUrl, raw: response });
+    } else {
+      res.status(500).send({ error: 'Não foi possível obter o vídeo. Verifique o retorno da API.', retorno: response });
+    }
   } catch (err) {
-    console.error(err);
+    console.error('Erro ao gerar vídeo:', err);
     res.status(500).send({ error: 'Erro ao gerar vídeo com o VEO', detalhes: err.message });
   }
 });
