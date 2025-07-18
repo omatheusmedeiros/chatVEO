@@ -117,6 +117,48 @@ app.get('/video-status/:operationId(*)', async (req, res) => {
   }
 });
 
+/**
+ * Rota para GERAR UMA IMAGEM usando o modelo Imagen (do Gemini).
+ * Retorna a URL de uma imagem gerada.
+ */
+app.post('/generate-image', async (req, res) => {
+  const { prompt } = req.body;
+  if (!prompt) {
+    return res.status(400).send({ error: 'O campo "prompt" é obrigatório.' });
+  }
+
+  try {
+    // Usamos um modelo da família "Imagen" para geração de imagens
+    const generativeModel = vertexAi.getGenerativeModel({
+      model: 'imagegeneration@006', // Modelo estável e recomendado para geração de imagens
+    });
+
+    const request = {
+      prompt: prompt,
+      // Você pode adicionar mais parâmetros aqui, como número de imagens, etc.
+      // Ex: sampleCount: 1,
+    };
+
+    // A API de imagem é síncrona, então a resposta já vem com os dados
+    const [response] = await generativeModel.generateImages(request);
+    
+    // A resposta contém uma lista de imagens geradas. Pegamos a primeira.
+    const imageUrl = response.images[0].url;
+
+    console.log('Imagem gerada com sucesso. URL:', imageUrl);
+
+    res.status(200).send({ imageUrl: imageUrl });
+
+  } catch (err) {
+    console.error('Erro ao gerar imagem com o Gemini/Imagen:', err);
+    // Verifica se o erro é de cota, para dar uma mensagem mais clara
+    if (err.message && err.message.includes('Quota exceeded')) {
+      return res.status(429).send({ error: 'Limite de uso da API de imagens atingido. Por favor, tente novamente mais tarde.' });
+    }
+    res.status(500).send({ error: 'Erro ao gerar imagem com a Vertex AI', details: err.message });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.status(200).send({ status: 'ok' });
 });
