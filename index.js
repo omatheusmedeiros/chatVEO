@@ -1,34 +1,29 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const { GoogleAuth } = require('google-auth-library');
 const { VertexAI } = require('@google-cloud/vertexai');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-let authClient = null;
-let vertexAi = null;
 let projectId = null;
 
 app.post('/auth-veo', async (req, res) => {
   try {
     const key = req.body.serviceAccount;
 
-    const auth = new GoogleAuth({
-      credentials: key,
-      scopes: 'https://www.googleapis.com/auth/cloud-platform',
-    });
+    // Escreve o JSON em disco temporário
+    const credPath = path.join('/tmp', 'gsa.json');
+    fs.writeFileSync(credPath, JSON.stringify(key));
 
-    authClient = await auth.getClient();
-    projectId = await auth.getProjectId();
+    // Seta a variável de ambiente para o SDK usar
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = credPath;
 
-    vertexAi = new VertexAI({
-      project: projectId,
-      location: 'us-central1',
-      auth: authClient,
-    });
+    // Pega projectId do JSON
+    projectId = key.project_id;
 
     res.status(200).send({ message: 'Autenticação realizada com sucesso!' });
   } catch (err) {
@@ -37,20 +32,23 @@ app.post('/auth-veo', async (req, res) => {
   }
 });
 
-// NOVA IMPLEMENTAÇÃO PARA GERAR VÍDEO
 app.post('/generate-video', async (req, res) => {
-  if (!vertexAi) {
+  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS || !projectId) {
     return res.status(400).send({ error: 'Service Account ainda não foi autenticada.' });
   }
 
   const { prompt } = req.body;
 
   try {
-    // Instancia o modelo generativo do VEO 3
-   const model = vertexAi.getGenerativeModel({
-  model: 'veo-3',
-});
+    const vertexAi = new VertexAI({
+      project: projectId,
+      location: 'us-central1'
+      // O SDK vai buscar o GOOGLE_APPLICATION_CREDENTIALS automaticamente
+    });
 
+    const model = vertexAi.getGenerativeModel({
+      model: 'veo-3', // ou teste 'publishers/google/models/veo-3'
+    });
 
     const result = await model.generateContent({
       contents: [
@@ -61,10 +59,9 @@ app.post('/generate-video', async (req, res) => {
       ],
     });
 
-    // O campo do vídeo pode variar, log para investigar
+    // LOGA o retorno para debug
     console.log('Resposta VEO3:', JSON.stringify(result, null, 2));
 
-    // Tente encontrar a URL do vídeo no retorno
     const videoUrl =
       result?.candidates?.[0]?.content?.parts?.[0]?.video ||
       result?.candidates?.[0]?.content?.parts?.[0]?.fileUrl ||
