@@ -47,9 +47,10 @@ app.post('/generate-video', async (req, res) => {
 
   try {
     // Instancia o modelo generativo do VEO 3
-    const model = vertexAi.getGenerativeModel({
-      model: 'publishers/google/models/veo-3',
-    });
+   const model = vertexAi.getGenerativeModel({
+  model: 'veo-3',
+});
+
 
     const result = await model.generateContent({
       contents: [
