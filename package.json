@@ -2,7 +2,6 @@
   "name": "veo-backend",
   "version": "1.0.0",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
@@ -14,3 +13,4 @@
     "google-auth-library": "^9.0.0"
   }
 }
+
