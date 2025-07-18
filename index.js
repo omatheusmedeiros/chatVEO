@@ -37,6 +37,7 @@ app.post('/auth-veo', async (req, res) => {
   }
 });
 
+// NOVA IMPLEMENTAÇÃO PARA GERAR VÍDEO
 app.post('/generate-video', async (req, res) => {
   if (!vertexAi) {
     return res.status(400).send({ error: 'Service Account ainda não foi autenticada.' });
@@ -45,25 +46,33 @@ app.post('/generate-video', async (req, res) => {
   const { prompt } = req.body;
 
   try {
-    // Caminho completo do modelo VEO 3.0 usando seu Project ID
-    const model = 'projects/refined-iridium-466204-v2/locations/us-central1/publishers/google/models/veo-3';
-
-    const response = await vertexAi.preview(model).predict({
-      instances: [{ prompt }],
+    // Instancia o modelo generativo do VEO 3
+    const model = vertexAi.getGenerativeModel({
+      model: 'publishers/google/models/veo-3',
     });
 
-    console.log('Resposta VEO3:', response);
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }],
+        },
+      ],
+    });
 
-    // Procure pelo campo correto do vídeo no retorno
-    let videoUrl = null;
-    if (response?.[0]?.videoUrl) videoUrl = response[0].videoUrl;
-    else if (response?.data?.output?.videoUrl) videoUrl = response.data.output.videoUrl;
-    else if (response?.predictions?.[0]?.videoUrl) videoUrl = response.predictions[0].videoUrl;
+    // O campo do vídeo pode variar, log para investigar
+    console.log('Resposta VEO3:', JSON.stringify(result, null, 2));
+
+    // Tente encontrar a URL do vídeo no retorno
+    const videoUrl =
+      result?.candidates?.[0]?.content?.parts?.[0]?.video ||
+      result?.candidates?.[0]?.content?.parts?.[0]?.fileUrl ||
+      null;
 
     if (videoUrl) {
-      res.status(200).send({ videoLink: videoUrl, raw: response });
+      res.status(200).send({ videoLink: videoUrl, raw: result });
     } else {
-      res.status(500).send({ error: 'Não foi possível obter o vídeo. Verifique o retorno da API.', retorno: response });
+      res.status(500).send({ error: 'Não foi possível obter o vídeo. Veja o retorno:', retorno: result });
     }
   } catch (err) {
     console.error('Erro ao gerar vídeo:', err);
@@ -73,14 +82,6 @@ app.post('/generate-video', async (req, res) => {
 
 app.get('/health', (req, res) => {
   res.status(200).send({ status: 'ok' });
-});
-
-app.get('/auth-status', (req, res) => {
-  if (vertexAi) {
-    res.status(200).send({ authenticated: true });
-  } else {
-    res.status(200).send({ authenticated: false });
-  }
 });
 
 app.listen(3000, () => {
