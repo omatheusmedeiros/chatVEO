@@ -75,6 +75,14 @@ app.get('/health', (req, res) => {
   res.status(200).send({ status: 'ok' });
 });
 
+app.get('/auth-status', (req, res) => {
+  if (vertexAi) {
+    res.status(200).send({ authenticated: true });
+  } else {
+    res.status(200).send({ authenticated: false });
+  }
+});
+
 app.listen(3000, () => {
   console.log('Servidor rodando na porta 3000');
 });
